@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres-consumer
+    environment:
+      POSTGRES_DB: consumer_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Test@123
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - consumer-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      timeout: 20s
+      retries: 10
+
+  consumer-app:
+    build: .
+    container_name: student-consumer
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/consumer_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: Test@123
+      SPRING_RABBITMQ_HOST: rabbitmq-shared  # Connects to Producer's RabbitMQ via shared network
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+    networks:
+      - consumer-network
+      - rabbitmq-network  # Shared external network created by Producer
+    restart: on-failure
+
+volumes:
+  postgres-data:
+
+networks:
+  consumer-network:
+    driver: bridge
+  rabbitmq-network:
+    external: true  # Uses the network created by Producer
