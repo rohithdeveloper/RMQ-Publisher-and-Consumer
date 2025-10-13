@@ -14,12 +14,12 @@ public class StudentService {
     @Autowired
     private StudentRepository studentRepository;
 
-    @Async("rabbit-consumer")
     public void saveStudent(Student student) {
-        log.info("💾 Student details received -> {}", student);
+        String threadName = Thread.currentThread().getName();
+        log.info("💾 [{}] Processing student: {}", threadName, student.getName());
         student.setId(null);
 
         Student savedStudent = studentRepository.save(student);
-        log.info("Student saved -> {}", savedStudent);
+        log.info("✅ [{}] Student saved: {}", threadName, savedStudent);
     }
 }

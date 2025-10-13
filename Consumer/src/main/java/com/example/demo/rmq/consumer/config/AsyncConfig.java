@@ -4,12 +4,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
 
 @Configuration
+@EnableAsync
 @Slf4j
 public class AsyncConfig {
 
@@ -24,9 +26,14 @@ public class AsyncConfig {
         executor.setCorePoolSize(corePoolSize);
         executor.setMaxPoolSize(maxPoolSize);
         executor.setQueueCapacity(queueCapacity);
-        executor.setThreadNamePrefix("async-");
+        executor.setThreadNamePrefix("rabbit-consumer-");
         executor.setKeepAliveSeconds(keepAliveSecond);
-        executor.afterPropertiesSet();
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.initialize();
+        
+        log.info("✅ RabbitMQ ThreadPoolExecutor initialized: core={}, max={}, queue={}, prefix=rabbit-consumer-", 
+                 corePoolSize, maxPoolSize, queueCapacity);
+        
         return executor;
     }
 }
