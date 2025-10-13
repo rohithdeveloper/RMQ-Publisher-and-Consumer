@@ -7,14 +7,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
-@Service
+@Component
 @Slf4j
 public class StudentConsumer {
 
     @Autowired
     private StudentRepository studentRepository;
+
+    @Autowired
+    private StudentService studentService;
 
 // This is a simple listener without manual acknowledgment
 
@@ -30,36 +33,29 @@ public class StudentConsumer {
 //    }
 
     // This listener uses MANUAL ACKNOWLEDGMENT
-        @RabbitListener(queues = "${rabbitmq.queue.name}")
+    @RabbitListener(queues = "${rabbitmq.queue.name}")
     public void consumeStudent(Student student, Channel channel, Message message) {
-        log.info("🔥 METHOD INVOKED - Received student: {}", student);
-        log.info("📝 Message properties: {}", message.getMessageProperties());
-
+        String threadName = Thread.currentThread().getName();
         long deliveryTag = message.getMessageProperties().getDeliveryTag();
-        log.info("📬 Delivery Tag: {}", deliveryTag);
+        
+        log.info("🔥 [{}] Received - DeliveryTag: {}, Student: {}", 
+                 threadName, deliveryTag, student.getName());
 
         try {
-            log.info("💾 Student details received -> {}", student);
-            log.info("🔧 Setting student ID to null for new insertion");
             student.setId(null);
-
-            log.info("💿 Attempting to save student to database...");
-            Student savedStudent = studentRepository.save(student);
-            log.info("✅ Student saved successfully -> {}", savedStudent);
+            studentService.saveStudent(student);
 
             // MANUAL ACK
-            log.info("⏳ Before ACK: deliveryTag = {}", deliveryTag);
             channel.basicAck(deliveryTag, false);
-            log.info("✅ ACK SUCCESSFULLY SENT for deliveryTag = {}", deliveryTag);
+            log.info("✅ [{}] ACK sent for deliveryTag: {}", threadName, deliveryTag);
 
         } catch (Exception e) {
-            log.error("❌ Error processing student: {}", e.getMessage(), e);
+            log.error("❌ [{}] Error: {}", threadName, e.getMessage(), e);
             try {
-                log.warn("🔄 Sending NACK and requeuing message with deliveryTag = {}", deliveryTag);
-                channel.basicNack(deliveryTag, false, true); // Requeue
-                log.info("✅ NACK sent successfully");
+                channel.basicNack(deliveryTag, false, true);
+                log.warn("🔄 [{}] NACK sent and requeued", threadName);
             } catch (Exception ex) {
-                log.error("❌ Failed to send NACK: {}", ex.getMessage(), ex);
+                log.error("❌ [{}] Failed to NACK: {}", threadName, ex.getMessage());
             }
         }
     }
