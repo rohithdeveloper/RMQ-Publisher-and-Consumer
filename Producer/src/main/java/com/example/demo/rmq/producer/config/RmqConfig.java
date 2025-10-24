@@ -47,4 +47,5 @@ public class RmqConfig {
         rabbitTemplate.setMessageConverter(messageConverter());
         return rabbitTemplate;
     }
+
 }
